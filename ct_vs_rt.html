@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <style>
+
+.comment { color: #999999; font-style: italic; }
+.pre { color: #000099; }
+.string { color: #009900; }
+.char { color: #009900; }
+.float { color: #996600; }
+.int { color: #999900; }
+.bool { color: #000000; font-weight: bold; }
+.type { color: #FF6633; }
+.flow { color: #FF0000; }
+.keyword { color: #990000; }
+.operator { color: #663300; font-weight: bold; }
+.operator { color: #663300; font-weight: bold; }
+pre.code {
+    border: 2px solid #666;
+    background-color: #F4F4F4;
+    padding-left: 10px;
+    padding-top: 0px;
+}
+code {
+    border: 2px solid #d0d0d0;
+    background-color: LightYellow;
+    padding: 2px;
+    padding-left: 10px;
+    display:table;
+    white-space:pre;
+    margin:2px;
+    margin-bottom:10px;
+}
+dt {
+    font-weight: bold;
+}
+.ins {
+    background-color:#A0FFA0;
+}
+.del {
+    background-color:#FFA0A0;
+    text-decoration:line-through
+}    
+h3 { 
+	margin-bottom: 0;
+}
+h4 { 
+	margin-bottom: 0;
+}
+</style>
+
+<title>Unifying compile-time and run-time dispatch</title>
+</head>
+
+<body>
+<!--<p>DXXXX<br>
+Mike Spertus, Symantec<br>
+<a href="mailto:mike_spertus@symantec.com">mike_spertus@symantec.com</a><br>
+2018-05-07<br>
+Audience: Evolution Working Group
+</p>-->
+<h1>Applying terse notations on a simple example</h1>
+	<p>C++ works best when compile-time and run-time programming are similar. For example, <tt>constexpr</tt> functions allow programs to easily move a calculation between compile-time and run-time as circumstances dictate.</p>
+<h2>Summary</h2>
+<p>C++ can dispatch polymorphism both at run-time via object-oriented programming and at compile-time via generic programming. While both object-oriented programming and generic programming are incredibly powerful, the decision of which one to use can be difficult and is very committal once made. To me, the appeal of terse notation is that it helps maintains flexibility to evolve program design in this regard, which is a huge benefit, as illustrated by the following example:
+<code>bool is_convex(Shape &amp;shape) { <span class="comment">/* ... */</span> }</code>
+In C++17, this object-oriented code will use virtual methods is the <tt>Shape</tt> class to determine whether a shape is <a href="https://en.wikipedia.org/wiki/Convex_set">convex</a>. As time goes on, it may well happen, as is often the case in scientific computing, that it is desired to improve performance by eliminating the virtual method calls. Using the notation of the Concepts TS, this is as simple as changing <tt>Shape</tt> from a class to a Concept. Now, <tt>is_convex</tt> will become a generic function that will often know the true type of its arguments and be able to devirtualize the calculation.</p>
+<p>However, the Concepts TS is not optimal for this purpose as the following example shows.
+<code>bool is_smaller(Shape &amp;l, Shape &amp;r) { return l.area() &lt; r.area(); }</code>
+If <tt>Shape</tt> is a class, then this can compare the size of a triangle and square, but if it is desire to evolve <tt>Shape</tt> to a Concept, <tt>is_smaller</tt> will not be able to compare objects of different types satisfying the <tt>Shape</tt> requirements. In order to reduce the notational distance between generic programming and object-oriented programming, we believe it is desirable to allow the arguments to have independent types as long as they satisfy the requirements of the <tt>Shape</tt> concept. In fact, straw polls have indicated that the committee prefers such independence as well (although we make no claims as to whether it is for similar reasons).</p>
+<p>Another problem with the Concepts TS is that it might be more natural to write the concept-constrained version as taking its arguments by value to ensure the true types are known, reducing the transparency of changing to run-time dispatch thereby inviting errors
+<code>bool is_smaller(Shape l, Shape r) { return l.area() &lt; r.area(); }</code></p>
+<h2>Current proposals</h2>
+For a variety of reasons, the terse notation from the Concepts TS has not achieved consensus and new alternatives are being considered. We would like to consider how the proposals handle the above examples
+<h2>Concepts in-place syntax</h2>
+<p>Herb Sutter's <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0745r0.pdf">Concepts in-place syntax</a> proposal requires that changing <tt>Shape</tt> from a base class to a concept requires rewriting functions that accept <tt>Shape</tt>s.
+<code>bool is_convex(Shape &amp;shape);   <span class="comment">// Shape is a class</span>
+bool is_convex(Shape {} shape); <span class="comment">// Shape is a Concept</span></code>
+While this is admittedly much less painful than the non-terse notation, it still means that a programmer who wants to compare compile-time and run-time dispatch may have to make changes in many places. Since different arguments </p>
+</body></html>
