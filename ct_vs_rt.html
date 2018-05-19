@@ -63,7 +63,7 @@ Audience: Evolution Working Group
 <h1>Can terse notation unify generic and object-oriented programming?</h1>
 	<h2>Abstract</h2>
 	<p>C++ works best when compile-time and run-time programming are similar. For example, <tt>constexpr</tt> functions allow programs to easily move a calculation between compile-time and run-time as circumstances dictate. Indeed, all proposals for terse notation make Concept-based compile-time dispatch suggestive of the familiar OOP-based runtime-dispatch. We think this is a good test case for terse notation not only for its (considerable we believe) intrinsic value, but because terse notation is a requirement for it rather than a notational convenience.</p>
-	<p>This paper looks at how well three different proposals for terse notation unify compile-time dispatch and run-time dispatch.</p>
+	<p>This paper looks at how well three different proposals for terse notation unify compile-time dispatch and run-time dispatch. We find that all three proposal can, to varying degrees, be refined to provide excellent support for this paradigm as described below.</p>
 <h2>Discussion</h2>
 <p>C++ can perform polymorphic dispatch both at run-time via object-oriented programming and at compile-time via generic programming. While both object-oriented programming and generic programming are incredibly powerful, the decision of which one to use can be difficult and is very committal once made. To us, the appeal of terse notation is that it helps maintains flexibility to evolve program design in this regard, which is a huge benefit, as illustrated by the following example:
 	
