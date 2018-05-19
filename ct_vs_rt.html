@@ -31,6 +31,7 @@ code {
     margin:2px;
     margin-bottom:10px;
 }
+
 dt {
     font-weight: bold;
 }
@@ -61,10 +62,11 @@ Audience: Evolution Working Group
 </p>-->
 <h1>Can terse notation unify generic and object-oriented programming?</h1>
 	<h2>Abstract</h2>
-	<p>C++ works best when compile-time and run-time programming are similar. For example, <tt>constexpr</tt> functions allow programs to easily move a calculation between compile-time and run-time as circumstances dictate. Indeed, all proposals for terse notation make Concept-based generic programming suggestive of the familiar object-oriented polymorphism model.</p>
-	<p>This paper examines how well three different proposals for terse notation unify compile-time dispatch and run-time dispatch. Fortunately, we find that any of the three terse notation proposals are capable of enabling this vision with modest refinements (described below), so this paper does not need to be tightly coupled with the rest of the debate over which terse notation to use.</p>
+	<p>C++ works best when compile-time and run-time programming are similar. For example, <tt>constexpr</tt> functions allow programs to easily move a calculation between compile-time and run-time as circumstances dictate. Indeed, all proposals for terse notation make Concept-based compile-time dispatch suggestive of the familiar OOP-based runtime-dispatch.</p>
+	<p>This paper looks at how well three different proposals for terse notation unify compile-time dispatch and run-time dispatch. Fortunately, we find that any of the three terse notation proposals are capable of enabling this vision with modest refinements (described below), so this paper does not need to be tightly coupled with the rest of the debate over which terse notation to use.</p>
 <h2>Discussion</h2>
 <p>C++ can perform polymorphic dispatch both at run-time via object-oriented programming and at compile-time via generic programming. While both object-oriented programming and generic programming are incredibly powerful, the decision of which one to use can be difficult and is very committal once made. To us, the appeal of terse notation is that it helps maintains flexibility to evolve program design in this regard, which is a huge benefit, as illustrated by the following example:
+	
 <code>bool is_convex(Shape &amp;s) { <span class="comment">/* ... */</span> }</code>
 In C++17, this object-oriented code will use virtual methods in the <tt>Shape</tt> class to determine whether a shape is <a href="https://en.wikipedia.org/wiki/Convex_set">convex</a>. As time goes on, it may well happen, as is often the case (esp. in what looks to be a computation-intensive geometry library), that it is desired to investigate improving performance by changing <tt>Shape</tt> to a Concept making <tt>is_convex</tt> a function template that dispatches at compile-time.</p>
 <p>We think that terse notation should achieve 3 goals to enable such flexible dispatch</p>
@@ -76,52 +78,77 @@ Since the programmer would have to redeclare every function in the library that 
 	
 <li><b>Stable interpretations:</b> Changing <tt>Shape</tt> from a class to a Concept should not change the interpretation of how functions act on the object model. For example, consider the following definition in the Concepts TS<code>bool is_smaller(Shape &amp;l, Shape &amp;r) { return l.area() &lt; r.area(); }</code>
 	If <tt>Shape</tt> is a base class, then <tt>is_smaller</tt> can compare the area of a triangle and a square, but if <tt>Shape</tt> is a Concept, it will only accept shapes of the same type. Changing from run-time dispatch to compile-time dispatch should be independent of the logical behavior of the function.</li>
-<li><b>Protection against code breakage:</b>A <tt>constexpr</tt> function whose body is not capable of producing a constant expression will fail to compile whether or not it is ever called with constant arguments. Likewise, a function that is expected to be robust against whether its parameter type is a class or a Concept should only compile if it can handle both. For example, the following code is perfectly valid if <tt>Shape</tt> is a class, but will become badly broken if <tt>Shape</tt> is made into a Concept.
+<li><b>Minimize code breakage:</b>The more code breaks when switching between types and Concepts, the less flexibility we will have. Indeed, a commonly raised concern about the Concepts TS is that how  <tt>is_convex</tt> can be used depends on whether <tt>Shape</tt> is a type or a Concept leading to <em>usage breakage</em> as follows
+	<code>auto x = &amp;is_convex; // Concepts TS: Valid if Shape is a type. Ill-formed if Shape is a Concept</code>
+
+	In addition, changing <tt>Shape</tt> from a class to a Concept could also easily result in <em>body breakage</em> of functions like <tt>is_convex</tt>.
 <code>bool is_convex(Shape &amp;s) 
 {
-  Shape s2 = s; <span class="comment">// Currently Ill-formed if Shape is a Concept</span>
-  Shape s3;     <span class="comment">// Ill-formed if Shape is a Concept</span>
+  Shape s2;        <span class="comment">// Ill-formed if Shape is a Concept</span>
   vector&lt;Shape&gt; v; <span class="comment">// Ill-formed if Shape is a Concept</span>
-  <span class="comment">/* ... */</span> }
+  <span class="comment">/* ... */</span>
 }</code>
-While perhaps we cannot expect perfection here, we would like to do better than that.</li>
+As another example, in the Concepts.</li>
 </ol>
 <p>In the rest of this paper, we look at how well several terse notation proposals support these goals. Our basic finding is that none of them are optimal on all of these goals &ldquo;as is&rdquo;. However, with some refinements, any one of the terse notations could provide excellent support all 3 goals. </p>
 	
 	
 <h2>Concepts TS</h2>
-<p>
-<code>bool is_convex(Shape &amp;s); <span class="comment">// Valid with expected meaning whether Shape is a type or a Concept</span></code>
-</p>
-<p>However, even disregarding the independent concerns that have been raises by the committee about the Concepts TS terse notation, we contend that the Concepts TS does not provide very good flexibility between object-oriented and generic programming.</p>
-<ul><li><b>Stable declarations:</b> This is the strong suit of the Concepts TS, as function declarations look the same whether or not they are used with classes or Concepts.
+
+<p>We start with the Concepts TS as a baseline</p>
+<ul><li><b>Stable declarations:</b> This is the strong suit of the Concepts TS as function declarations look the same whether or not they are used with classes or Concepts.
 <code>bool is_convex(Shape &amp;s); <span class="comment">// Remains valid with expected meaning whether Shape is a type or a Concept</span></code></li>
-	<li><b>Stable interpretations:</b>The interpretation of a declaration may depend on whether <tt>Shape</tt> is a base class or a Concept. For example, consider
-<code>bool is_smaller(Shape &amp;l, Shape &amp;r) { return l.area() &lt; r.area(); }</code>
-	If <tt>Shape</tt> is a base class, then <tt>is_smaller</tt> can compare the area of a triangle and a square, but if <tt>Shape</tt> is a Concept, it will only accept shapes of the same type.
+	<li><b>Stable interpretations:</b> The Concepts TS does not provide stable interpretations as shown by the <tt>is_smaller</tt> example above.
 </li>
-	<li>Changing a base class to a Concept is likely to break the bodies of many templates as follows <code>bool is_convex(Shape &amp;s) 
-{
-  Shape s2 = s; <span class="comment">// OK with Concepts TS terse notation   (note 1)</span>
-  Shape s3;     <span class="comment">// Ill-formed if Shape is a Concept     (note 2)</span>
-  vector&lt;Shape&gt; v; <span class="comment">// Ill-formed if Shape is a Concept  (note 3)</span>
-  <span class="comment">/* ... */</span>
-}</code></li></ul>
+	<li><b>Minimize code breakage:</b> The Concepts TS does nothing to minimize code breakage, and is vulnerable to both usage breakage and body breakage as described above.</li></ul>
 <h3>Possible refinements</h3>
-<p>In order to align the interpretation of object-oriented and generic functions, we believe it is desirable to allow the arguments to have independent types as long as they satisfy the requirements of the <tt>Shape</tt> concept. With this change, <tt>is_smaller</tt> could handle any two argumets that IsA shape. Indeed, straw polls have indicated that the committee prefers such independence as well (although we make no claims as to whether it is for similar reasons).</p>
-<p>Unfortunately, we have no suggestions for improving the Concepts TS to better avoid &ldquo;body breakage&rdquo;</p>
+<p>Stable interpretation can be addressed by switching to independent binding of function arguments. Unfortunately, as has frequently been noted, it is difficult to see any way to protect against usage breakage within the framework of the Concepts TS. Body breakage can be addressed by the same approach described for the &ldquo;minimal solution&rdquo; below.</p>
 
 <h2>A minimal solution to the concepts syntax problems</h2>
-<p>Bjarne Stroustrup's <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1079r0.pdf">A minimal solution to the concepts syntax problems</a> paper proposes that declarations using the natural syntax be preceded by the word <tt>template</tt>. As a result, making <tt>Shape</tt> a Concept will require modifying the declarations of all functions that use <tt>Shape</tt>. 
-<code>template bool is_convex(Shape &amp;s); <span class="comment">// Shape must be a Concept</span></code>
-	While this is easy to do for just the one function <tt>is_convex</tt>, tuning a library of functions may well become onerous (although still much better than without terse notation). Since arguments are resolved independently, there is no silent change in the interpretation of the declaration. The  proposal does not address questions of body breakage.</p>
+<p>Bjarne Stroustrup's <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1079r0.pdf">A minimal solution to the concepts syntax problems</a> paper addresses usage breakage by requiring that declarations using the natural syntax be preceded by the word <tt>template</tt>. 
+	<code>template bool is_convex(Shape &amp;s); <span class="comment">// Shape is a Concept</span></code>
+<ul><li><b>Stable declarations: </b> Unfortunately, this proposal does not provide stable declarations as changing <tt>Shape</tt> a Concept will require prefixing the declarations of all functions that use <tt>Shape</tt> with <tt>template</tt>. While this is easy to do for just the one function <tt>is_convex</tt>, in a library with many functions, switching back and forth (e.g., to investigate the tradeoffs between run-time and compile-time dispatching) will be a lot of work.</li>
+<li><b>Stable interpretations:</b> This proposal provides stable interpretations through independent resolutions of arguments</li>
+<li><b>Minimize code breakage: </b> This proposal addresses usage breakage as mentioned above but does not address body breakage</li></ul> 
+	
 <h3>Possible refinements</h3>
-<p>One possible refinement is to allow any function declaration to be preceded by the word <tt>template</tt> if it has arguments that might become concepts. <code>template bool is_convex(Shape &amp;s); <span class="comment">// Permit whether Shape is a Concept or a class</span></code> Even if an object-oriented style is being currently used, this may be a useful declaration of intent. At the least, it would allow quick switching back and forth during the implementation phase. A keyword other than <tt>template</tt> may be worth considering as it is really a declaration that this may be (or become) either a function or a function template.</p>
-<p>Again, we have no suggestions for mitigating potential body breakage.</p>
+<p>One thing we like about this proposal is that with several refinements, it is possible to achieve all of the goals in this paper!</p>
+	
+	<p>Stable declarations can be achieved by allowing any function declaration to advertise that it has a stable declaration by preceding it by the word <tt>template</tt>, whether or not it currently has Concept arguments. <code>template bool is_convex(Shape &amp;s); <span class="comment">// Permit whether Shape is a Concept or a class</span></code> In some ways, this provides the best of both worlds. Ordinary and legacy functions are not subject to silent usage breaking as in the Concepts TS, but functions that wish to maintain flexibility as to whether their arguments are types or Concepts may do so, serving both as a declaration of intent and allowing for quick switching back and forth during the implementation phase. Such functions may not be used (through public interfaces) in ways that assume they are non-template functions, further protecting against usage breakage. 
+		<code>template bool is_convex(Shape &amp;s); <span class="comment">// Permit whether Shape is a Concept or a class</span>
+auto x = &amp;is_convex; <span class="comment">// Ill-formed whether Shape is a concept or a class</span></code> </p>
+	<p><b>Bikeshed: </b>A keyword other than <tt>template</tt> may be worth considering as this may .</p>
+<p>All that remains is to minimize body breakage. The key insight here is that <tt>Shape</tt> is not just any class but is one that may be replaced with a Concept in the future as the tradeoffs between run-time and compile-time dispatching evolve. This suggests that the right place to advertise this is in the declaration of the <tt>Shape</tt> class with a prefix like <tt>may_become_concept</tt> (bikeshed)
+<code>may_become_concept class Shape { <span class="comment">/* ... */</span> };</code>
+Now, code that only works with with classes but not concepts can be made ill-formed.
+<code>bool is_convex(Shape &amp;s) 
+{
+  Shape s2;        <span class="comment">// Proposed: Ill-formed if Shape is a Concept or may_become_concept</span>
+  vector&lt;Shape&gt; v; <span class="comment">// Ill-formed if Shape is a Concept or may_become_concept</span>
+  Shape s3 = s;    <span class="comment">// Ok if Shape is a class or Concept</span>
+  <span class="comment">/* ... */</span>
+}</code></p>
+<p><b>Note: </b> This is only a syntactic check (as in template syntactic-analysis). Any deeper checking along the lines of C++0X concepts definition checking is far beyond the scope of this paper.</p>
 <h2>Concepts in-place syntax</h2>
-<p>Herb Sutter's <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0745r0.pdf">Concepts in-place syntax</a> proposal requires that changing <tt>Shape</tt> from a base class to a concept requires rewriting functions that accept <tt>Shape</tt>s.
+<p>Herb Sutter's <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0745r0.pdf">Concepts in-place syntax</a> avoids usage breakage by requiring that changing <tt>Shape</tt> from a class to a concept requires rewriting functions that accept <tt>Shape</tt>s.
 <code>bool is_convex(Shape &amp;shape);   <span class="comment">// Shape is a class</span>
-bool is_convex(Shape {} shape); <span class="comment">// Shape is a Concept</span></code>
-While this is admittedly much less painful than the non-terse notation, it still means that a programmer who wants to compare compile-time and run-time dispatch may have to make changes in many places. Since different arguments </p><p>As mentioned above, if a class is replaced by a Concept that exposes the same logical interface, we would like to know that the code will at least still be syntactically valid.</p>
-	 Conceptually, we are looking for something like template syntax checking, which has proven very useful, rather than something like C++0X concept definition checking.
+bool is_convex(Shape {} &amp;shape); <span class="comment">// Shape is a Concept</span></code>
+</p>
+<ul><li><b>Stable declarations: </b> This proposal does not provide stable declarations as changing <tt>Shape</tt> a Concept will require modifying the declarations of all functions that use <tt>Shape</tt> arguments with <tt>{}</tt>. While this is easy to do for just the one function <tt>is_convex</tt>, in a library with many functions, switching back and forth (e.g., to investigate the tradeoffs between run-time and compile-time dispatching) will require tedious and error-prone modifications to many declarations.</li>
+<li><b>Stable interpretations:</b> This proposal provides stable interpretations through independent resolutions of arguments</li>
+<li><b>Minimize code breakage: </b> This proposal addresses usage breakage as mentioned above but does not address body breakage</li></ul> 
+<h3>Possible refinements</h3>
+This approach can also be made to achieve all of the goals of the paper. We propose that if a function declaration does not wish to assume whether one of its arguments is a class or a concept, it can use <tt>{}</tt> thereby gaining declaration stability while maintaing interpretation stability.
+	<code>bool is_convex(Shape {} &amp;shape); <span class="comment">// Proposed: Valid whether Shape is a class or a Concept</span>
+auto x = &amp;is_convex; // <span class="comment">// Proposed: Ill-formed whether Shape is a class or a Concept</span></code>
+Likewise, body breakage can be avoided by leveraging the advertisement of the <tt>{}</tt>.
+<code>bool is_convex(Shape {} &amp;s) 
+{
+  Shape s2;        <span class="comment">// Proposed: Ill-formed if Shape is a class or Concept</span>
+  vector&lt;Shape&gt; v; <span class="comment">// Ill-formed if Shape is a class or Concept</span>
+  Shape s3 = s;    <span class="comment">// Ok if Shape is a class or Concept</span>
+  <span class="comment">/* ... */</span>
+}</code> Alternatively, the <tt>may_become_concept</tt> approach to preventing body breakage could be used, although it does not seem to integrate quite as naturally in this approach as in the &ldquo;minimal solution&rdquo; approach.
+<h2>Next steps</h2>
+Big claims require compelling evidence. We are fully aware that more details and more substantial examples are needed to demonstrate that terse notation can be an effective tool for unifying compile-time and run-time dispatch. We intend to provide both of those in a paper for San Diego. As for the Rapperswil meeting, we do not think this should detract from voting on a terse notation as this proposal can build on any of the terse notations under consideration (Although better on the Minimal Solution and In-place Syntax than on the Concepts TS).
 </body></html>
