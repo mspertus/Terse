@@ -78,20 +78,39 @@ P1141R0 defines what this means if <tt>Shape</tt> is a concept. To retain
 	flexibility as to whether <tt>Shape</tt> is a class or a concept, we merely
 	need to provide a concepts-based interpretation of the above when <tt>Shape</tt>
 	is a class, which is of course the concept that the type is simply <tt>Shape</tt>.
-	More generally, we propose that <ul><li>a declaration that with an <tt>auto</tt>-qualified
-	class <tt>C</tt>  the concept <tt>Same&lt;C, _ &gt;</tt> representing type
-	equality with the class <tt>C</tt>.</ul>
-In other words, if <tt>Shape</tt> is a class, the above declaration is equivalent
+In other words, if <tt>Shape</tt> is a class, the above declaration should be equivalent
 to
 <blockquote><pre class="brush:cpp">template&lt;typename T&gt; concept is_Shape = Same&lt;Shape, T&gt;;
 bool is_convex(is_Shape auto const &amp;s);</pre></blockquote>
-What about within the function body? Since we want to retain flexibility
-as to whether <tt>C</tt> is a class or a concept, we add the following rule
-<ul><li>Uses of <tt>Shape</tt> within the function body are all replaced by <tt>is_Shape</tt></li></ul>
-This ensures that only code that is compatible with concepts is accepted, so that it is
-easy to change <tt>Shape</tt> back and forth between being a class and a concept, completing the proposal.
-<h3>Examples</h3>
+To further ensure that it is
+easy to change <tt>Shape</tt> back and forth between being a class and a concept, occurrences of <tt>Shape</tt> within the function body of <tt>is_convex</tt>
+should also be replaced with <tt>is_Shape</tt>, ensuring that only code that is compatible with concepts is accepted. The unsung
+hero in making this really work well is that, as pointed out in P1168R0, constrained function template argument deduction
+and class template argument deduction greatly facilitate safely and expressively writing function bodies. While P1168R0
+focuses on how this helps concept code in general, it also makes it easier to write code for classes that wish to maintain
+the flexibility to change to concepts in the future.
+<blockquote><pre class="brush:cpp">// The following is ok if Shape is a class but has numerous problems if Shape is a concept
+bool is_convex(Shape const &amp;s) 
+{
+  pair p(s, 7); 
+  auto x = make_unique&lt;optional&gt;(convex_hull(s)); // See P1069R0
+  /* ... */
+}
+</pre></blockquote>
 
+
+
+Summing up the above, our proposal is simply
+<ul><li>In a declaration using the <tt>auto</tt>-qualified
+	class <tt>C</tt>, <  the concept <tt>Same&lt;C, _ &gt;</tt> representing type
+	equality with the class <tt>C</tt>.</li>
+<li>If a function template has a <tt>C auto</tt> in its parameter list, occurrences of <tt>C</tt> within the function body are 
+	replaced by the concept for type equality with <tt>C</tt></li>
+	
+	</ul>
+As described above, with these rules, writing code that works with both classes and concepts is as
+easy as writing concepts code alone, sidestepping the myriad subtle differences between generic
+and &ldquo;normal&rdquo; programming.
 
 <script type="text/javascript">
 	SyntaxHighlighter.defaults['gutter'] = false;
