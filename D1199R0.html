@@ -38,111 +38,61 @@ Audience: Evolution Working Group
 		easily moving between template-based compile-time dispatch and OOP-based runtime-dispatch. We especially like this use case for terse
 	notation because it requires a &ldquo;natural notation&rdquo; and cannot be accomplished with the long form concept notation.
 		This paper analyzes how to support unification of generic and object-oriented programming 
-		under a constrained declaration notation that builds on <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1141r0.html">P1141R0</a>.</p>
+		under a constrained declaration notation that builds on <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1141r0.html">P1141R0</a>.
+	In the process, we provide what we believe to be a simple and comprehensive proposal for unifying generic and object-oriented programming.</p>
 <h2>Discussion</h2>
 	<p>It is well-known that generic programming and object-oriented programming can be applied to similar problems (See, for example, the discussion of containers in Bjarne Stroustrup's <a href="http://www.cs.ox.ac.uk/ralf.hinze/WG2.8/28/slides/bjarne.pdf">Concepts for C++1y: The Challenge</a>). While both object-oriented programming and generic programming are incredibly powerful at type-based dispatching, deciding which one to use can be difficult and is extremely
 		committal once made. To us, the appeal of terse notation is that it has the potential to replace this often premature choice between two very different and poorly-integrated programming models for type-based dispatch with a well-integrated approach that allows the tradeoff between
 		generic programming and object-oriented programming to be flexibly tuned and evolved over time as circumstances dictate.</p>
 		 Let us consider the following declaration:
 	
-	<blockquote><pre class="brush:cpp">bool is_convex(Shape &amp;s) { /* ... */ }</pre></blockquote>
+	<blockquote><pre class="brush:cpp">bool is_convex(Shape const &amp;s) { /* ... */ }</pre></blockquote>
 In C++17, this object-oriented code will use virtual methods in the <tt>Shape</tt> class to determine whether a shape is <a href="https://en.wikipedia.org/wiki/Convex_set">convex</a>, but in the language of the <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/n4674.pdf">Concepts TS</a>, this might equally well declare a function template
 		performing compile-time dispatch between types satisfying the <tt>Shape</tt> concept. This suggests that it might 
-		be possible to tune/evolve a program between object-oriented dispatch and maintaining the flexibility to  <tt>Shape</tt> to a Concept. If such a unification could be achieved, we believe it would be fantastically powerful, but of course the devil is in the details and achieving this vision is easier said than done.
-	<p>To maintain such flexible dispatch, we think that terse notation should meet 3 goals</p>
-<ol><li><b>Stable declarations: </b>
-Without terse notation, changing <tt>Shape</tt> to a Concept requires making major changes to the declarations of all functions that have <tt>Shape</tt> arguments. E.g.,
-<pre class="brush:cpp">template&lt;typename T&gt;
-bool is_convex(T &amp;s) requires Shape&lt;T&gt; { /* ... */ }</pre>
-Since the programmer would have to redeclare every function in the library that accepts <tt>Shape</tt>s, this would invite errors and in practice would often be impractical, resulting in brittleness.
-<p>Forwarding references can also break declaration stability. For example, if we don't know whether <tt>Shape</tt> is a class or a Concept, does the following function accept an rvalue reference or a forwarding reference? <code>void f(Shape &amp;&amp;);</code> This case is interesting and will be discussed both in the individual notations and in its own section at the end.</p></li>
-	
-<li><b>Stable interpretations:</b> Changing <tt>Shape</tt> from a class to a Concept should not change the interpretation of how functions act on the object model. For example, consider the following definition in the Concepts TS<code>bool is_smaller(Shape &amp;l, Shape &amp;r) { return l.area() &lt; r.area(); }</code>
-	If <tt>Shape</tt> is a base class, then <tt>is_smaller</tt> can compare the area of a triangle and a square, but if <tt>Shape</tt> is a Concept, it will only accept shapes of the same type. Changing from run-time dispatch to compile-time dispatch should be independent of the logical behavior of the function.</li>
-<li><b>Minimize code breakage:</b> It does little good to have a stable declaration and interpretation for <tt>is_convex</tt> if it needs to be completely rewritten if <tt>Shape</tt> is changed from a type to a Concept due to <em>body breakage</em> such as
-<code>bool is_convex(Shape &amp;s) 
+		be possible to tune/evolve a program between object-oriented dispatch and maintaining the flexibility to  <tt>Shape</tt> to a Concept. If such a unification could be achieved, we believe it would be fantastically powerful, but of course the devil is in the details, so let us look more closely.
+<h3>Challenges</h3>
+One obvious challenge is that changing <tt>Shape</tt> from a
+	concept to a class is very likely to break the function body for <tt>is_convex</tt> because, even though usage of classes and concepts are in some ways similar, there are many difference in their precise usage, both major and subtle, as illustrated below:
+<blockquote><pre class="brush:cpp">// The following is ok if Shape is a class but has numerous problems if Shape is a concept
+bool is_convex(Shape const &amp;s) 
 {
-  Shape s2;        <span class="comment">// Ill-formed if Shape is a Concept</span>
-  vector&lt;Shape&gt; v; <span class="comment">// Ill-formed if Shape is a Concept</span>
-  <span class="comment">/* ... */</span>
-}</code>
-Likewise, flexibility may fail on the client-side when code using <tt>is_convex</tt> suffers <em>usage breakage</em> when conceptizing <tt>is_convex</tt> turns it from a function to a function template. Indeed, a common criticism of the Concepts TS is that one cannot tell whether the code such as the following is legal just by looking at the declaration of <tt>is_convex</tt>  
-	<code>auto x = &amp;is_convex; // Concepts TS: Valid if Shape is a type. Ill-formed if Shape is a Concept</code>
-See <a href="https://wg21.link/p0587r0">P0587R0</a> and <a href="https://wg21.link/p0696r0">P0696R0</a> for more discussion of code interpretation changes between classes and Concepts.</li>
-</ol>
-<p>In the rest of this paper, we look at how well several terse notation proposals support these goals. Our basic finding is that none of them are optimal on all of these goals &ldquo;as is&rdquo;. However, with some refinements, any one of the terse notations could provide excellent support all 3 goals. Note that Concepts without terse notation accomplishes none of these three goals.</p>
+  pair&lt;Shape, int&gt; p(s, 7); 
+  auto x = make_unique&lt;optional&lt;Shape&gt;&gt;(convex_hull(s));
+  /* ... */
+}
+</pre></blockquote>
+Likewise, even though the behavior of functions and function templates are also in some ways similar, their interpretation can change depending on
+	whether <tt>Shape</tt> is a class or a concept:
+<blockquote><pre class="brush:cpp">// Pass by rvalue ref if Shape is a class, forwarding ref is Shape is a concept
+bool smooth(Shape &amp;&amp;s);
+auto f = &amp;smooth;  // OK if Shape is a class, but ill-formed if it is a concept
+</pre></blockquote>
+<h2>Proposal</h2>
+So, how do we enable flexible code in the face of such distinctions without introducing breaking changes? Fortunately,
+	the recent approach of P1141R0 gives us a sigil that can be used when we desire to say that type inference could take
+	place.
+	<blockquote><pre class="brush:cpp">// is_convex is a function template
+bool is_convex(Shape auto const &amp;s) { /* ... */ }</pre></blockquote>
 	
-	
-<h2>Concepts TS</h2>
+P1141R0 defines what this means if <tt>Shape</tt> is a concept. To retain 
+	flexibility as to whether <tt>Shape</tt> is a class or a concept, we merely
+	need to provide a concepts-based interpretation of the above when <tt>Shape</tt>
+	is a class, which is of course the concept that the type is simply <tt>Shape</tt>.
+	More generally, we propose that <ul><li>a declaration that with an <tt>auto</tt>-qualified
+	class <tt>C</tt>  the concept <tt>Same&lt;C, _ &gt;</tt> representing type
+	equality with the class <tt>C</tt>.</ul>
+In other words, if <tt>Shape</tt> is a class, the above declaration is equivalent
+to
+<blockquote><pre class="brush:cpp">template&lt;typename T&gt; concept is_Shape = Same&lt;Shape, T&gt;;
+bool is_convex(is_Shape auto const &amp;s);</pre></blockquote>
+What about within the function body? Since we want to retain flexibility
+as to whether <tt>C</tt> is a class or a concept, we add the following rule
+<ul><li>Uses of <tt>Shape</tt> within the function body are all replaced by <tt>is_Shape</tt></li></ul>
+This ensures that only code that is compatible with concepts is accepted, so that it is
+easy to change <tt>Shape</tt> back and forth between being a class and a concept, completing the proposal.
+<h3>Examples</h3>
 
-<p>We start with the Concepts TS as a baseline</p>
-<ul><li><b>Stable declarations:</b> This is the strong suit of the Concepts TS as function declarations look the same whether or not they are used with classes or Concepts.
-<code>bool is_convex(Shape &amp;s); <span class="comment">// Remains valid with expected meaning whether Shape is a type or a Concept</span></code></li>
-	<li><b>Stable interpretations:</b> The Concepts TS does not provide stable interpretations as shown by the <tt>is_smaller</tt> example above.
-</li>
-	<li><b>Minimize code breakage:</b> The Concepts TS does nothing to minimize code breakage, and is vulnerable to both usage breakage and body breakage as described above.</li></ul>
-<h3>Possible refinements</h3>
-<p>Stable interpretation can be addressed by switching to independent binding of function arguments. Cide breakage can be addressed by the same approach described for the &ldquo;minimal solution&rdquo; below.</p>
 
-<h2>A minimal solution to the concepts syntax problems</h2>
-<p>Bjarne Stroustrup's <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1079r0.pdf">A minimal solution to the concepts syntax problems</a> paper addresses usage breakage by requiring that declarations using the natural syntax be preceded by the word <tt>template</tt>. 
-	<code>template bool is_convex(Shape &amp;s); <span class="comment">// Shape is a Concept</span></code>
-<ul><li><b>Stable declarations: </b> Unfortunately, this proposal does not provide stable declarations as changing <tt>Shape</tt> a Concept will require prefixing the declarations of all functions that use <tt>Shape</tt> with <tt>template</tt>. While this is easy to do for just the one function <tt>is_convex</tt>, in a library with many functions, switching back and forth (e.g., to investigate the tradeoffs between run-time and compile-time dispatching) will be a lot of work.</li>
-<li><b>Stable interpretations:</b> This proposal provides stable interpretations through independent resolutions of arguments</li>
-<li><b>Minimize code breakage: </b> This proposal addresses usage breakage as mentioned above but does not address body breakage</li></ul> 
-	
-<h3>Possible refinements</h3>
-<p>One thing we like about the Minimal Solution proposal is that with several refinements, it appears possible to achieve a good degree of compatibility with all of the goals in this paper!</p>
-<p>The key insight here is that the fundamental problem is that not all code that is legal for classes is legal for Concepts, so if we wish to program with the idea that some type may be replaced with a Concept in the future as the tradeoffs between run-time and compile-time dispatching evolve, we need to avoid such constructs.  Since a symbol's declaration declares whether it is a class or a concept, that is also a natural place to declare that a class may be replaced with a concept later, say with a prefix like <tt>may_become_concept</tt> (The final version of this proposal will probably recommend just <tt>concept</tt> but for now we use an obvious bikeshed)
-<code>may_become_concept class Shape { <span class="comment">/* ... */</span> };</code>
-This not only serves a valuable documentary purpose but allows us to make ill-formed code that would not work with concepts.</p>
-	
-	<p>Stable declarations can be achieved by allowing function declarations to advertise that it has a stable declaration by preceding it by the word <tt>template</tt> as long as it has either a Concept argument of <tt>may_become_concept</tt> argument. 
-		<code>template bool is_convex(Shape &amp;s); <span class="comment">// Permit whether Shape is a Concept or a class that may become a concept</span></code> 
-		In some ways, this provides the best of both worlds. Ordinary and legacy functions are not subject to silent usage breaking as in the Concepts TS, but functions that wish to maintain flexibility as to whether their arguments are types or Concepts may do so, serving both as a declaration of intent and allowing for quick switching back and forth during the implementation phase. Such functions may not be used (through public interfaces) in ways that assume they are non-template functions, further protecting against usage breakage. Furthermore, this prevents forwarding references from breaking stable declarations because <tt>may_become_concept &amp;&amp;</tt> arguments are interpreted as forwarding references (See the section on Forwarding Reference below for another approach).
-		<code>template bool is_convex(Shape &amp;s); <span class="comment">// Permit whether Shape is a Concept or a may_become_concept class</span>
-auto x = &amp;is_convex; <span class="comment">// Ill-formed whether Shape is a concept or a may_become_concept class</span>
-template void f(Shape &amp;&amp;); <span class="comment">// Template with forwarding reference whether Shape is a Concept or a may_become_concept class</span></code> </p>
-
-	<p><b>Bikeshed: </b>A keyword other than <tt>template</tt> may be worth considering as <tt>is_convex</tt> may or may not actually be a function template depending on whether <tt>Shape</tt> is currently a (<tt>may_become_concept</tt>) class or a Concept. </p>
-<p>All that remains is to minimize body breakage.  The idea is that the compiler replaces all mentions of a <tt>may_become_concept</tt> class within the body of a &ldquo;<tt>template</tt>&rdquo; function with a notional concept satisfied by any type that inherits from the class. We think this is a simple way to obviate the subtle difference between classes and concepts while maintaining a good degree of (admittely not perfect) compatibility with existing code.
-<code>template bool is_convex(Shape &amp;s) 
-{
-  Shape s2;        <span class="comment">// Proposed: Ill-formed regardless of whether Shape is a Concept or may_become_concept</span>
-  vector&lt;Shape&gt; v; <span class="comment">// Proposed: Ill-formed regardless of whether Shape is a Concept or may_become_concept</span>
-  Shape s3 = s;    <span class="comment">// Ok if Shape is a class or Concept</span>  
-  <span class="comment">/* ... */</span>
-}</code></p>
-<b>Notes: </b> This is only a syntactic check (as in template syntactic-analysis). Any deeper checking along the lines of C++0X concepts definition checking is far beyond the scope of this paper.
-<h2>Concepts in-place syntax</h2>
-<p>Herb Sutter's <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0P745r0.pdf">Concepts in-place syntax</a> avoids usage breakage by requiring that changing <tt>Shape</tt> from a class to a concept requires rewriting functions that accept <tt>Shape</tt>s.
-<code>bool is_convex(Shape &amp;shape);    <span class="comment">// Shape is a class</span>
-bool is_convex(Shape {} &amp;shape); <span class="comment">// Shape is a Concept</span></code>
-</p>
-<ul><li><b>Stable declarations: </b> This proposal does not provide stable declarations as changing <tt>Shape</tt> a Concept will require modifying the declarations of all functions that use <tt>Shape</tt> arguments with <tt>{}</tt>. While this is easy to do for just the one function <tt>is_convex</tt>, in a library with many functions, switching back and forth (e.g., to investigate the tradeoffs between run-time and compile-time dispatching) will require tedious and error-prone modifications to many declarations.</li>
-<li><b>Stable interpretations:</b> This proposal provides stable interpretations through independent resolutions of arguments</li>
-<li><b>Minimize code breakage: </b> This proposal addresses usage breakage as mentioned above but does not address body breakage</li></ul> 
-<h3>Possible refinements</h3>
-This approach can also be made to achieve all of the goals of the paper. We propose that if a function declaration wishes to maintain flexibility as to whether one of its arguments is a class or a concept, it can use <tt>{}</tt> thereby gaining declaration stability while maintaing interpretation stability.
-	<code>bool is_convex(Shape {} &amp;shape); <span class="comment">// Proposed: Valid whether Shape is a class or a Concept</span>
-auto x = &amp;is_convex; <span class="comment">// Proposed: Ill-formed whether Shape is a class or a Concept</span>
-void f(Shape {} &amp;&amp;); <span class="comment">// Proposed: function template with forwarding reference whether Shape is a class or a a Concept</span></code>
-Likewise, body breakage can be avoided by leveraging the advertisement of the <tt>{}</tt>.
-<code>bool is_convex(Shape {} &amp;s) 
-{
-  Shape s2;        <span class="comment">// Proposed: Ill-formed if Shape is a class or Concept</span>
-  vector&lt;Shape&gt; v; <span class="comment">// Proposed: Ill-formed regardless of whether Shape is a class or Concept</span>
-  Shape s3 = s;    <span class="comment">// Ok if Shape is a class or Concept</span>
-  <span class="comment">/* ... */</span>
-}</code> Alternatively, the <tt>may_become_concept</tt> approach to preventing body breakage could be used, although it does not seem to integrate quite as naturally in this approach as in the &ldquo;minimal solution&rdquo; approach.
-<h2>Forwarding references</h2>
-<p>As mentioned above, forwarding references can cause declaration breaking. Although possible approaches to this are addressed in the above refinements for the different terse notations, we would like to take a step back in an attempt to moot that issue. In our opinion, the use of a single glyph &amp;&amp; to represent the very different concepts of rvalue references and forwarding references is the root of the problem. Even in C++17, it is confusing for the programmer, and the context sensitive parsing is brittle and borders on breaking down when features like terse notation are added. In our opinion, this was a mistake. While we understand the motivation, it pays to be clear, and there are worse things than adding a new glyph (we love the spaceship operator). </p>
-<p>Fortunately, the introduction of terse notation gives us an opportunity to reconsider this decision without breaking compatibility. If <tt>C</tt> is a Concept or a class that may become a concept, then <tt>C &amp;&amp;</tt> function arguments are interpreted as rvalue references. The new glyph <tt>&amp;&amp;&amp;</tt> can be used wherever a forwarding reference is desired. The following code is written with the Minimal Notation as refined above, but similar adaptations work with all three notations
-<code>template void f(Shape &amp;&amp;);  <span class="comment">// rvalue reference whether Shape is Concept or may_become_concept</span>
-template void g(Shape &amp;&amp;&amp;); <span class="comment">// Forwarding reference whether Shape is Concept or may_become_concept</span> </code>
-</p>
-<h2>Next steps</h2>
-	We are fully aware that more details and more substantial examples are needed to convincingly demonstrate that terse notation can be an effective tool for unifying compile-time and run-time dispatch. We intend to provide both of those in a paper for San Diego. As for the Rapperswil meeting, we do not think this should detract from voting on a terse notation as this proposal can build on any of the terse notations under consideration.
 <script type="text/javascript">
 	SyntaxHighlighter.defaults['gutter'] = false;
      SyntaxHighlighter.all()
