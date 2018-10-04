@@ -16,7 +16,7 @@ body .syntaxhighlighter .line {
 }
 
     </style>
-<title>Can terse notation unify generic and object-oriented programming?</title>
+<title>A simple proposal for unifying generic and object-oriented programming</title>
 </head>
 
 <body>
@@ -26,20 +26,32 @@ Mike Spertus, Symantec<br>
 2018-05-20<br>
 Audience: Evolution Working Group
 </p>
-<!-- Adjective notation doesn't work.
-     What does the simple language look like? (the intersection of ct and rt for devs. Scripting for apps)
-     Surprising answer for consistent vs run-time
-     Why do we need labeled parameters?
--->
 	
-<h1>Can terse notation unify generic and object-oriented programming?</h1>
-	<h2>Abstract</h2>
-	<p>C++ works best when compile-time and run-time programming are similar. For example, <tt>constexpr</tt> functions allow programs to easily move calculations back and forth between compile-time and run-time as circumstances dictate with no change in code. Similarly, terse notation has the potential to enable
+	<h1>A simple proposal for unifying generic and object-oriented programming</h1> 
+	<p>In this paper, we propose a simple extension to <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1141r0.html">P1141R0</a>
+	that we believe provides a simple and comprehensive proposal for unifying generic and object-oriented programming.</p>
+	<h2>The problem</h2>
+	C++ works best when compile-time and run-time programming are similar. For example, <tt>constexpr</tt> functions allow programs to easily move calculations back and forth between compile-time and run-time as circumstances dictate with no change in code.
+	<p>However, while it is well-known that generic programming and object-oriented programming can be applied to similar problems (See, for example, the discussion of containers in Bjarne Stroustrup's <a href="http://www.cs.ox.ac.uk/ralf.hinze/WG2.8/28/slides/bjarne.pdf">Concepts for C++1y: The Challenge</a>), they do so with very different notations. Once the design decision is made about whether to use templates
+	or virtual functions, it is extremely committal and cannot easily be changed.</p>
+	<p>For example, in designing a drawing library, one would consider whether <tt>Shape</tt> should be a base class with virtual
+	functions performing runtime dispatch for more dynamic dispatching or a concept with compile-time dispatch for greater performance.
+	If <tt>Shape</tt> is a class, a function might be declared as</p>
+	<blockquote><pre class="brush:cpp">bool is_convex(Shape const &amp;s);</pre></blockquote>
+However, it <tt>Shape</tt> is a concept, a very different declaration must be used:
+	<blockquote><pre class="brush:cpp">template&lt;typename T&gt; requires Shape&lt;T&gt;
+bool is_convex(T const &amp;s);</pre></blockquote>
+making it virtually impossible to retain any flexibility between the object-oriented paradigm and the template paradigm.
+
+	to switch
+	<p>Terse notation, as proposed most recently in ..., reduces the notational gap between object-oriented and template programming, but
+	still does not provide a way for switching code between compile-time and runtime dispatching without rewriting.</p>
+		Similarly, terse notation has the potential to enable
 		easily moving between template-based compile-time dispatch and OOP-based runtime-dispatch. We especially like this use case for terse
 	notation because it requires a &ldquo;natural notation&rdquo; and cannot be accomplished with the long form concept notation.
 		This paper analyzes how to support unification of generic and object-oriented programming 
 		under a constrained declaration notation that builds on <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1141r0.html">P1141R0</a>.
-	In the process, we provide what we believe to be a simple and comprehensive proposal for unifying generic and object-oriented programming.</p>
+	In the process, we provide what we believe to be a simple and comprehensive proposal for unifying generic and object-oriented programming.
 <h2>Discussion</h2>
 	<p>It is well-known that generic programming and object-oriented programming can be applied to similar problems (See, for example, the discussion of containers in Bjarne Stroustrup's <a href="http://www.cs.ox.ac.uk/ralf.hinze/WG2.8/28/slides/bjarne.pdf">Concepts for C++1y: The Challenge</a>). While both object-oriented programming and generic programming are incredibly powerful at type-based dispatching, deciding which one to use can be difficult and is extremely
 		committal once made. To us, the appeal of terse notation is that it has the potential to replace this often premature choice between two very different and poorly-integrated programming models for type-based dispatch with a well-integrated approach that allows the tradeoff between
@@ -99,17 +111,19 @@ bool is_convex(Shape const &amp;s)
 </pre></blockquote>
 
 
-
 Summing up the above, our proposal is simply
 <ul><li>In a declaration using the <tt>auto</tt>-qualified
-	class <tt>C</tt>, <  the concept <tt>Same&lt;C, _ &gt;</tt> representing type
+	class <tt>C</tt>, the concept <tt>Same&lt;C, _ &gt;</tt> representing type
 	equality with the class <tt>C</tt>.</li>
 <li>If a function template has a <tt>C auto</tt> in its parameter list, occurrences of <tt>C</tt> within the function body are 
 	replaced by the concept for type equality with <tt>C</tt></li>
 	
 	</ul>
-As described above, with these rules, writing code that works with both classes and concepts is as
-easy as writing concepts code alone, sidestepping the myriad subtle differences between generic
+Of course, code working with classes in the normal way independent of concepts is
+unaffected, avoiding any breaking changes to existing programs and continuing to provide the full
+functionality expected from classes when flexibility is not desired, but now, writing code that flexibly works with both classes and concepts is as
+easy as writing concepts code alone, providing a simple unification between the two major programming styles in C++, without the need to
+get mired in the myriad subtle differences between generic
 and &ldquo;normal&rdquo; programming.
 
 <script type="text/javascript">
